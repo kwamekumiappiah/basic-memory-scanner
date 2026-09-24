@@ -68,14 +68,14 @@ RegionList *create_region_list(void) {
     return region_list;
 }
 
+size_t get_region_count(const RegionList *list) {
+    return list ? list->count : 0;
+}
+
 void free_region(RegionList *region_list) {
     if (!region_list) return;
     free(region_list->regions);
     free(region_list);
-}
-
-size_t get_region_count(const RegionList *list) {
-    return list ? list->count : 0;
 }
 
 int add_region(RegionList *list, unsigned long start, unsigned long end) {
@@ -131,12 +131,15 @@ unsigned char *read_memory_segment(int mem_fd, const RegionList *list, size_t in
     return buffer;
 }
 
-void scan_buffer(const unsigned char *buffer, size_t seg_size, const RegionList *list, size_t index, int target_val) {
-    if (!buffer || !list || index >= list->count || seg_size < sizeof(int)) return;
+size_t get_address_count(const AddressList *list) {
+    return list ? list->count : 0;
+}
+
+void scan_buffer(const unsigned char *buffer, size_t seg_size, const RegionList *list, size_t index, int target_val, AddressList *addr_list) {
+    if (!buffer || !list || !addr_list || index >= list->count || seg_size < sizeof(int)) return;
 
     unsigned long base_addr = list->regions[index].start;
 
-    AddressList *addr_list = create_address_list();
     for (size_t i = 0; i <= seg_size - sizeof(int); i++) {
         int current_val = *(int *)(buffer + i);
         if (current_val == target_val) {
@@ -164,4 +167,19 @@ AddressList *filter_addresses(int mem_fd, AddressList *old_list, int new_target_
         }
     }
     return new_list;
+}
+
+void print_addresses(int mem_fd, const AddressList *list) {
+    if (!list) return;
+
+    for (size_t i = 0; i < list->count; i++) {
+        int value = 0;
+        ssize_t byte_read = pread(mem_fd, &value, sizeof(int), list->addresses[i]);
+        
+        if (byte_read == sizeof(int)) {
+            printf("Address: 0x%lx | Value: %d\n", list->addresses[i], value);
+        } else {
+            printf("Address: 0x%lx | [Read Failed]\n", list->addresses[i]);
+        }
+    }
 }
